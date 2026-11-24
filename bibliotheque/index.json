@@ -16,14 +16,19 @@
    "composer": "Scott Joplin"
   },
   {
+   "id": "menuet-de-bach",
+   "title": "Menuet de Bach",
+   "composer": "J.S. Bach (1685-1750)"
+  },
+  {
    "id": "menuet-en-sol",
    "title": "Menuet en sol majeur",
    "composer": "Ch. Petzold (mélodie) — basse simplifiée"
   },
   {
-   "id": "menuet-de-bach",
-   "title": "Menuet de Bach",
-   "composer": "J.S. Bach (1685-1750)"
+   "id": "ave-maria-version-simplifiee",
+   "title": "Ave Maria (version simplifiée)",
+   "composer": "Ch. Gounod, sur le 1er Prélude de J.-S. Bach"
   }
  ]
 }
