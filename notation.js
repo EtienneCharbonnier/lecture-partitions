@@ -267,7 +267,8 @@ function render(container, prep, opts) {
   }
   if (cur && cur.ms.length) systems.push(cur);
 
-  var model = { S: S, sysH: sysH, systems: [], measures: [], ev: {}, rows: vis, topM: topM, gap: gap, single: !!opts.single };
+  var model = { S: S, sysH: 0, systems: [], measures: [], ev: {}, rows: vis, topM: topM, gap: gap, single: !!opts.single };
+  var baseTop = topM, baseGap = gap, baseBot = botM;
   container.innerHTML = '';
 
   for (var si = 0; si < systems.length; si++) {
@@ -277,19 +278,42 @@ function render(container, prep, opts) {
     var avail = W - fixed;
     var scale = (opts.single || (last && totalNat < avail * 0.8)) ? 1 : Math.max(0.6, avail / totalNat);
     var sysW = opts.single ? fixed + totalNat + S : (scale === 1 && last ? fixed + totalNat + S * 0.5 : W);
+    /* hauteur de chaque portée selon les notes très hautes ou très basses de la ligne */
+    var ab = [], be = [];
+    for (k = 0; k < nv; k++) { ab.push(0); be.push(0); }
+    for (j = 0; j < sy.ms.length; j++) {
+      var Mx = ms[sy.ms[j]];
+      for (var q3 = 0; q3 < Mx.events.length; q3++) {
+        var ex = Mx.events[q3], rw = rowOf(ex.st);
+        if (rw < 0 || ex.r || !ex.notes.length) continue;
+        var cb = clefBase(Mx.clefs[ex.st]), pmin = ex.notes[0].d - cb, pmax = ex.notes[ex.notes.length - 1].d - cb;
+        var upx = ex.sd ? ex.sd === 'u' : (pmin + pmax) / 2 < 4, stem = ex.ty !== 'w' && ex.ty !== 'b';
+        ab[rw] = Math.max(ab[rw], (pmax - 8) / 2 * S + (upx && stem ? S * 3.8 : S * 1.0));
+        var below = (0 - pmin) / 2 * S + (!upx && stem ? S * 3.8 : S * 1.0);
+        if (hasNames) below = Math.max(S * 2.6, (0 - pmin) / 2 * S + S * 1.8) + S * 1.25 * (ex.notes.length - 1) + S * 0.6;
+        be[rw] = Math.max(be[rw], below);
+      }
+    }
+    var sTop = Math.max(baseTop, ab[0] + S * (1.6 + (hasChords ? 2.4 : 0) + (hasEnd ? 1.6 : 0)));
+    var tops = [sTop];
+    for (k = 1; k < nv; k++) tops.push(tops[k - 1] + S * 4 + Math.max(baseGap, be[k - 1] + ab[k] + S * 2.2));
+    var sBot = Math.max(baseBot, be[nv - 1] + S * 1.6);
+    sysH = tops[nv - 1] + S * 4 + sBot;
+    topM = sTop;
+    model.sysH = Math.max(model.sysH, sysH);
     var svg = el('svg', { width: Math.ceil(sysW), height: Math.ceil(sysH), viewBox: '0 0 ' + Math.ceil(sysW) + ' ' + Math.ceil(sysH), 'class': 'sys' });
     container.appendChild(svg);
     var gBg = el('g', {}, svg), gStaff = el('g', {}, svg), gMus = el('g', {}, svg), gBeam = el('g', { 'class': 'bmg' }, svg), gAnn = el('g', { 'class': 'ann' }, svg);
-    var cursor = el('line', { x1: 0, x2: 0, y1: topM - S, y2: sysH - botM + S, 'class': 'cursor', 'stroke-width': S * 0.25 }, svg);
-    var SM = { i: si, svg: svg, ms: sy.ms, cursor: cursor, ann: gAnn, w: sysW, h: sysH };
+    var cursor = el('line', { x1: 0, x2: 0, y1: topM - S, y2: tops[nv - 1] + S * 5, 'class': 'cursor', 'stroke-width': S * 0.25 }, svg);
+    var SM = { i: si, svg: svg, ms: sy.ms, cursor: cursor, ann: gAnn, w: sysW, h: sysH, topM: topM };
     model.systems.push(SM);
     var Ys = [];
     for (k = 0; k < nv; k++) {
-      (function (t0) { Ys.push(function (p) { return t0 + 4 * S - p * S / 2; }); })(topM + k * (S * 4 + gap));
-      var top0 = topM + k * (S * 4 + gap);
+      (function (t0) { Ys.push(function (p) { return t0 + 4 * S - p * S / 2; }); })(tops[k]);
+      var top0 = tops[k];
       for (var l = 0; l < 5; l++) el('line', { x1: LM + S * 0.5, x2: sysW - S * 0.5, y1: r1(top0 + l * S), y2: r1(top0 + l * S), 'class': 'st', 'stroke-width': Math.max(1, S * 0.1) }, gStaff);
     }
-    var yTop = topM, yBot = topM + (nv - 1) * (S * 4 + gap) + S * 4;
+    var yTop = topM, yBot = tops[nv - 1] + S * 4;
     el('line', { x1: LM + S * 0.5, x2: LM + S * 0.5, y1: yTop, y2: yBot, 'class': 'ks', 'stroke-width': S * 0.14 }, gStaff);
     if (nv > 1) D.path('M0 0C-1.2 0.6-0.2 ' + r1((yBot - yTop) / S * 0.45) + ' -1.0 ' + r1((yBot - yTop) / S * 0.5) + 'C-0.2 ' + r1((yBot - yTop) / S * 0.55) + ' -1.2 ' + r1((yBot - yTop) / S - 0.6) + ' 0 ' + r1((yBot - yTop) / S), LM - S * 0.1, yTop, 0.25, 'ks', gStaff);
     /* en-tête */

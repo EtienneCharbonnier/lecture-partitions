@@ -44,7 +44,7 @@ function msg(t, ms) {
 /* ------------------------------------------------------------ réglages */
 var SET = store('set') || {};
 var DEF = { theme: 'light', mode: 'v', marks: { n: 1, m: 1, c: 1, p: 1 }, names: 'fr', namesOn: 0, sound: 'synth', vol: 80, mvol: 60,
-  metro: 0, countin: 1, kbd: 0, accStart: 60, accStep: 5, last: null };
+  metro: 0, countin: 1, kbd: 0, kbdOct: 3, accStart: 60, accStep: 5, last: null };
 for (var dk in DEF) if (DEF.hasOwnProperty(dk) && SET[dk] === undefined) SET[dk] = DEF[dk];
 function saveSet() { store('set', SET); }
 
@@ -308,7 +308,7 @@ function play(fromSi, noCount) {
   if (!slices.length) return;
   unlockAudio();
   if (!ctx) { msg('Le son n’est pas disponible dans ce navigateur.'); return; }
-  P.on = true; P.si = fromSi || 0; P.queue = []; P.endAt = 0; P.loopN = 0; P.hl = []; P.keys = []; P.ties = {}; P.lastSi = -1;
+  P.on = true; P.cx = -1e9; P.csi = -1; P.si = fromSi || 0; P.queue = []; P.endAt = 0; P.loopN = 0; P.hl = []; P.keys = []; P.ties = {}; P.lastSi = -1;
   clearMarks();
   var t = ctx.currentTime + 0.15;
   if (SET.countin && !noCount) {
@@ -347,9 +347,9 @@ function frame() {
   if (cur) {
     var sl = slices[cur.si];
     if (cur.si !== P.lastSi) { P.lastSi = cur.si; onSlice(sl); }
-    var nx = P.queue.length > 1 && P.queue[1].si >= 0 ? P.queue[1] : null;
+    var nsi = (loopA !== null && loopB !== null && cur.si === loopB) ? -1 : cur.si + 1;
     var frac = clamp((now - cur.t) / Math.max(0.001, sl.d * cur.spt), 0, 1);
-    moveCursor(sl, frac, nx ? slices[nx.si] : null);
+    moveCursor(sl, frac, nsi >= 0 && nsi < slices.length ? slices[nsi] : null);
   }
   /* notes en couleur */
   var keepH = [];
@@ -418,8 +418,10 @@ function colX(M, t) {
 }
 function moveCursor(sl, frac, nsl) {
   var M = model.measures[sl.mi]; if (!M) return;
-  var x0 = colX(M, sl.t), x1 = (nsl && nsl.mi === sl.mi && nsl.t > sl.t) ? colX(M, nsl.t) : M.x1 - model.S * 0.8;
+  var x0 = colX(M, sl.t), x1 = (nsl && nsl.mi === sl.mi && nsl.t > sl.t) ? colX(M, nsl.t) : M.x1 + model.S * 0.4;
   var x = x0 + (x1 - x0) * frac - model.S * 1.2;
+  if (x < P.cx && M.sys === P.csys && sl.i === P.csi) x = P.cx;
+  P.cx = x; P.csys = M.sys; P.csi = sl.i;
   var c = model.systems[M.sys].cursor;
   c.setAttribute('x1', x); c.setAttribute('x2', x);
   if (SET.mode === 'h') {
@@ -436,7 +438,7 @@ function render() {
   var view = $('view'), box = $('score');
   view.className = SET.mode === 'h' ? 'h' : SET.mode === 'p' ? 'p' : '';
   view.style.marginTop = $('top').offsetHeight + 'px';
-  view.style.marginBottom = SET.kbd ? '130px' : '0';
+  view.style.marginBottom = SET.kbd ? ($('kbd').offsetHeight + 10) + 'px' : '0';
   var W = Math.max(320, document.documentElement.clientWidth - 8);
   var base = W >= 900 ? 10.5 : (W >= 600 ? 9.5 : 7.5);
   var vis = [];
@@ -496,8 +498,8 @@ function drawLoopBands() {
     var xb = mi === b.mi ? (b.t + b.d >= prep.measures[mi].d ? M.x1 : colX(M, b.t + b.d) - model.S * 1.5) : M.x1;
     if (mi === b.mi && loopB === null) xb = colX(M, b.t) + model.S * 1.5;
     var S2 = model.systems[M.sys], r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    r.setAttribute('x', xa); r.setAttribute('y', model.topM - model.S * 1.5); r.setAttribute('width', Math.max(4, xb - xa));
-    r.setAttribute('height', S2.h - model.topM); r.setAttribute('class', 'loopband');
+    r.setAttribute('x', xa); r.setAttribute('y', S2.topM - model.S * 1.5); r.setAttribute('width', Math.max(4, xb - xa));
+    r.setAttribute('height', S2.h - S2.topM); r.setAttribute('class', 'loopband');
     S2.svg.insertBefore(r, S2.svg.firstChild);
   }
 }
@@ -527,10 +529,11 @@ function onScoreTap(ev) {
   var h = hitTest(ev); if (!h) return;
   var si = sliceFor(h); if (si === null) return;
   unlockAudio();
-  if (loopStage === 1) { loopA = si; loopB = null; loopStage = 2; drawLoopBands(); msg('Touchez maintenant la dernière note du passage.', 0); return; }
+  if (loopStage === 1) { loopA = si; loopB = null; loopStage = 2; drawLoopBands(); updateUI(); msg('Début noté (mesure ' + (slices[si].mi + 1) + '). Touchez maintenant la dernière note du passage.', 0); return; }
   if (loopStage === 2) {
     if (si < loopA) { var t0 = loopA; loopA = si; si = t0; }
-    loopB = si; loopStage = 0; drawLoopBands(); updateUI(); msg('Boucle prête. Touchez Lecture.');
+    loopB = si; loopStage = 0; drawLoopBands(); updateUI();
+    msg('Boucle prête : mesures ' + (slices[loopA].mi + 1) + ' à ' + (slices[loopB].mi + 1) + '. Touchez Lecture.', 4000);
     P.start = loopA;
     return;
   }
@@ -555,7 +558,8 @@ function drawAnnotations() {
 function strokePath(a) {
   var M = model.measures[a.m]; if (!M) return null;
   var w = M.x1 - M.x0, d = '';
-  for (var i = 0; i < a.p.length; i++) d += (i ? 'L' : 'M') + Math.round(M.x0 + a.p[i][0] * w) + ' ' + Math.round(model.topM + a.p[i][1] * model.S);
+  var tm = model.systems[M.sys].topM;
+  for (var i = 0; i < a.p.length; i++) d += (i ? 'L' : 'M') + Math.round(M.x0 + a.p[i][0] * w) + ' ' + Math.round(tm + a.p[i][1] * model.S);
   return { d: d, S: model.systems[M.sys] };
 }
 function drawStroke(a) {
@@ -578,7 +582,7 @@ function annMove(ev) {
   ev.preventDefault();
   var t = ev.touches ? ev.touches[0] : ev, r = stroke.svg.getBoundingClientRect();
   var x = t.clientX - r.left, y = t.clientY - r.top, w = stroke.M.x1 - stroke.M.x0;
-  stroke.a.p.push([Math.round((x - stroke.M.x0) / w * 1000) / 1000, Math.round((y - model.topM) / model.S * 100) / 100]);
+  stroke.a.p.push([Math.round((x - stroke.M.x0) / w * 1000) / 1000, Math.round((y - model.systems[stroke.M.sys].topM) / model.S * 100) / 100]);
   if (stroke.el) stroke.el.parentNode.removeChild(stroke.el);
   stroke.el = drawStroke(stroke.a);
 }
@@ -592,40 +596,68 @@ function annEnd() {
 /* ------------------------------------------------------------ clavier à l'écran */
 var keyEls = {}, keyShown = {};
 function buildKeyboard() {
-  var kin = $('kin'); kin.innerHTML = ''; keyEls = {}; keyShown = {};
-  $('kbd').style.display = SET.kbd ? 'block' : 'none';
-  if (!SET.kbd || !prep) return;
+  var kin = $('kin'), kb = $('kbd'); kin.innerHTML = ''; keyEls = {}; keyShown = {};
+  kb.style.display = SET.kbd ? 'block' : 'none';
+  if (!SET.kbd || !prep) { placeMsg(); return; }
   var lo = 127, hi = 0;
   each(prep.events, function (e) { each(e.notes, function (n) { lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); }); });
   if (prefs.chords) { lo = Math.min(lo, 36); hi = Math.max(hi, 64); }
   if (lo > hi) { lo = 48; hi = 72; }
   lo = Math.floor(lo / 12) * 12; hi = Math.ceil((hi + 1) / 12) * 12 - 1;
-  if (hi - lo < 23) hi = lo + 23;
+  var oct = SET.kbdOct || 3;
+  while ((hi - lo + 1) / 12 < oct) { if (lo >= 24 && (hi - lo) % 24 < 12) lo -= 12; else hi += 12; }
   var whites = [], m;
   for (m = lo; m <= hi; m++) if ([1, 3, 6, 8, 10].indexOf(m % 12) < 0) whites.push(m);
-  var W = kin.clientWidth || document.documentElement.clientWidth - 8, kw = W / whites.length, wi = 0;
+  var VW = document.documentElement.clientWidth - 8;
+  var kw = VW / (7 * oct), H = clamp(Math.round(kw * 4.6), 80, 210);
+  kb.style.height = (H + 12) + 'px';
+  kin.style.width = Math.ceil(whites.length * kw) + 'px';
+  var wi = 0;
   for (m = lo; m <= hi; m++) {
     var black = [1, 3, 6, 8, 10].indexOf(m % 12) >= 0, d = document.createElement('div');
-    if (black) { d.className = 'k2'; d.style.left = (wi * kw - kw * 0.32) + 'px'; d.style.width = (kw * 0.64) + 'px'; }
+    if (black) { d.className = 'k2'; d.style.left = (wi * kw - kw * 0.31) + 'px'; d.style.width = (kw * 0.62) + 'px'; }
     else {
       d.className = 'w'; d.style.left = (wi * kw) + 'px'; d.style.width = (kw + 1) + 'px'; wi++;
       if (m % 12 === 0) { var sp = document.createElement('span'); sp.textContent = (SET.names === 'en' ? 'C' : 'do') + (Math.floor(m / 12) - 1); d.appendChild(sp); }
     }
-    d.setAttribute('data-m', m);
+    d.setAttribute('data-m', m); d.setAttribute('data-x', ((wi - (black ? 0 : 1)) * kw));
     kin.appendChild(d); keyEls[m] = d;
   }
-  function press(ev) {
-    var t = ev.target; while (t && !t.getAttribute('data-m')) t = t.parentNode;
-    if (!t) return;
-    ev.preventDefault(); unlockAudio();
+  /* centre la vue sur le do central ou sur la tessiture du morceau */
+  var mid = keyEls[60] ? parseFloat(keyEls[60].getAttribute('data-x')) : whites.length * kw / 2;
+  kb.scrollLeft = Math.max(0, mid - VW / 2);
+  var sx = 0, sy = 0, moved = false;
+  kin.ontouchstart = function (ev) { var p = ev.touches[0]; sx = p.clientX; sy = p.clientY; moved = false; };
+  kin.ontouchmove = function (ev) { var p = ev.touches[0]; if (Math.abs(p.clientX - sx) > 8) moved = true; };
+  kin.ontouchend = function (ev) { if (!moved) { ev.preventDefault(); press(ev.changedTouches[0].target); } };
+  kin.onmousedown = function (e) { if (!('ontouchstart' in window)) press(e.target); };
+  function press(t) {
+    while (t && t.getAttribute && !t.getAttribute('data-m')) t = t.parentNode;
+    if (!t || !t.getAttribute) return;
+    unlockAudio();
     var mm = parseInt(t.getAttribute('data-m'), 10);
     if (ctx) playNote(mm, ctx.currentTime + 0.01, 0.8, 0.8);
     var c = t.className; t.className = c + ' on0'; setTimeout(function () { t.className = c; }, 250);
   }
-  kin.ontouchstart = press; kin.onmousedown = function (e) { if (!('ontouchstart' in window)) press(e); };
+  placeMsg();
+}
+var kbdFollowT = 0;
+function kbdFollow(act) {
+  var kb = $('kbd'), VW = kb.clientWidth, lo = 1e9, hi = -1e9;
+  for (var m in act) if (act.hasOwnProperty(m) && keyEls[m]) { var x = parseFloat(keyEls[m].getAttribute('data-x')); lo = Math.min(lo, x); hi = Math.max(hi, x); }
+  if (lo > hi) return;
+  var now = Date.now();
+  if (now - kbdFollowT < 600) return;
+  if (lo < kb.scrollLeft + 10 || hi > kb.scrollLeft + VW - 40) { kbdFollowT = now; kb.scrollLeft = Math.max(0, (lo + hi) / 2 - VW / 2); }
+}
+function placeMsg() {
+  var m = $('msg');
+  m.style.top = 'auto';
+  m.style.bottom = (SET.kbd ? $('kbd').offsetHeight + 12 : 18) + 'px';
 }
 function keysShow(act) {
   var m;
+  if (SET.kbd) kbdFollow(act);
   for (m in keyShown) if (keyShown.hasOwnProperty(m) && act[m] === undefined) { if (keyEls[m]) keyEls[m].className = keyEls[m].className.replace(/ on[01]/g, ''); delete keyShown[m]; }
   for (m in act) if (act.hasOwnProperty(m) && keyShown[m] !== act[m] && keyEls[m]) { keyEls[m].className = keyEls[m].className.replace(/ on[01]/g, '') + ' on' + act[m]; keyShown[m] = act[m]; }
 }
@@ -703,6 +735,7 @@ function updateUI() {
   $('hands').style.display = score.staves > 1 ? 'inline' : 'none';
   for (var s = 0; s < 2; s++) { var h = prefs.hands[s]; setCls($('h' + s + 's'), 'on', !!h.s); setCls($('h' + s + 'v'), 'on', !!h.v); }
   setCls($('bLoop'), 'on', loopA !== null || loopStage > 0);
+  $('bLoop').innerHTML = loopStage === 1 ? 'Boucle : d&eacute;but ?' : loopStage === 2 ? 'Boucle : fin ?' : (loopA !== null ? 'Boucle &#10003;' : 'Boucle');
   setCls($('bAcc'), 'on', accel);
   setCls($('bMet'), 'on', !!SET.metro);
   setCls($('bCnt'), 'on', !!SET.countin);
@@ -716,6 +749,7 @@ function updateUI() {
   each(document.querySelectorAll('[data-names]'), function (b) { setCls(b, 'on', b.getAttribute('data-names') === SET.names); });
   each(document.querySelectorAll('[data-sound]'), function (b) { setCls(b, 'on', b.getAttribute('data-sound') === SET.sound); });
   each(document.querySelectorAll('[data-mark]'), function (b) { setCls(b, 'on', !!SET.marks[b.getAttribute('data-mark')]); });
+  each(document.querySelectorAll('[data-oct]'), function (b) { setCls(b, 'on', +b.getAttribute('data-oct') === (SET.kbdOct || 3)); });
   $('zVal').textContent = Math.round(prefs.zoom * 100) + ' %';
   $('aVal').textContent = SET.accStart + ' %'; $('sVal').textContent = SET.accStep + ' %';
   $('vol').value = SET.vol; $('mvol').value = SET.mvol;
@@ -730,7 +764,13 @@ function updateUI() {
 }
 function rerender() { var was = P.on; if (was) stop(false); render(); if (was) play(P.start, true); }
 
-tap($('bPlay'), function () { if (!score) return; if (P.on) stop(false); else play(P.start); });
+tap($('bPlay'), function () {
+  if (!score) return;
+  if (P.on) { stop(false); return; }
+  if (loopStage === 1) { loopStage = 0; updateUI(); msg(''); }
+  if (loopStage === 2) { loopB = slices.length - 1; loopStage = 0; drawLoopBands(); updateUI(); msg('Boucle du début choisi jusqu’à la fin du morceau.'); P.start = loopA; }
+  play(P.start);
+});
 tap($('bStop'), function () { stop(true); P.start = loopA !== null ? loopA : 0; if (SET.mode === 'p') layoutPages(0); else if (SET.mode === 'h') $('view').scrollLeft = 0; else window.scrollTo(0, 0); });
 $('tempo').addEventListener('input', function () { setTempo(+this.value); }, false);
 $('tempo').addEventListener('change', function () { setTempo(+this.value); }, false);
@@ -746,7 +786,7 @@ each([0, 1], function (s) {
 });
 tap($('bLoop'), function () {
   if (loopA !== null || loopStage) { loopA = loopB = null; loopStage = 0; accel = false; drawLoopBands(); msg('Boucle retirée.'); }
-  else { loopStage = 1; msg('Touchez la première note du passage.', 0); }
+  else { loopStage = 1; msg('Touchez la première note du passage à répéter.', 0); }
   updateUI();
 });
 tap($('bAcc'), function () {
@@ -795,6 +835,7 @@ tap($('bAccomp'), function () {
   savePrefs(); updateUI(); buildKeyboard();
   msg(prefs.accomp ? (score.staves > 1 || hasH ? 'La mélodie se tait, l’appli joue l’accompagnement.' : 'Ce morceau n’a ni main gauche ni accords : il n’y a rien à accompagner.') : 'Mélodie rétablie.');
 });
+each(document.querySelectorAll('[data-oct]'), function (b) { tap(b, function () { SET.kbdOct = +b.getAttribute('data-oct'); saveSet(); updateUI(); buildKeyboard(); rerender(); }); });
 tap($('a1'), function () { SET.accStart = Math.max(30, SET.accStart - 5); saveSet(); updateUI(); });
 tap($('a2'), function () { SET.accStart = Math.min(95, SET.accStart + 5); saveSet(); updateUI(); });
 tap($('s1'), function () { SET.accStep = Math.max(1, SET.accStep - 1); saveSet(); updateUI(); });

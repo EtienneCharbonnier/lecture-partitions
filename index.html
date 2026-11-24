@@ -25,7 +25,7 @@ body{font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;backg
 #tempo{width:130px;vertical-align:middle;margin:0 3px}
 #tLab{display:inline-block;min-width:92px;text-align:center;vertical-align:middle;font-size:16px}
 .sep{display:inline-block;width:10px}
-#msg{position:fixed;left:50%;top:120px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#25221e;color:#fff;padding:10px 16px;border-radius:9px;z-index:40;font-size:16px;display:none;max-width:90%;text-align:center}
+#msg{position:fixed;left:50%;bottom:18px;pointer-events:none;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#25221e;color:#fff;padding:10px 16px;border-radius:9px;z-index:40;font-size:16px;display:none;max-width:90%;text-align:center}
 #view{padding:8px 0 30px}
 #view.h{overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;white-space:nowrap}
 #view.p{position:relative;overflow:hidden}
@@ -36,7 +36,7 @@ svg.sys{display:block;background:#fffdf8;margin:0 auto 4px}
 #title{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:24px;margin:6px 0 0}
 #composer{text-align:center;color:#6b6358;font-size:14px;margin:0 0 6px}
 #wrapline{position:absolute;left:0;right:0;height:0;border-top:2px dashed #d1361f;display:none}
-#kbd{position:fixed;left:0;right:0;bottom:0;height:120px;background:#25221e;z-index:15;display:none;padding:6px 4px 4px}
+#kbd{position:fixed;left:0;right:0;bottom:0;height:120px;background:#25221e;z-index:15;display:none;padding:6px 4px 6px;overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 #kbd .w,#kbd .k2{position:absolute;top:0;border-radius:0 0 4px 4px}
 #kbd .w{background:#fbfaf6;border:1px solid #888;height:100%}
 #kbd .k2{background:#1b1b1b;height:62%;z-index:2}
@@ -44,6 +44,7 @@ svg.sys{display:block;background:#fffdf8;margin:0 auto 4px}
 #kbd .w.on1,#kbd .k2.on1{background:#1f5fbf}
 #kbd .w span{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:11px;color:#777}
 #kin{position:relative;height:100%}
+#kbd .k2{box-shadow:inset 0 -3px 0 rgba(255,255,255,.12)}
 .panel{position:fixed;top:0;bottom:0;right:0;width:420px;max-width:100%;background:#fbf9f4;color:#1b1b1b;z-index:30;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:-4px 0 18px rgba(0,0,0,.3);display:none;padding:14px 16px 40px}
 .panel h2{font-family:Georgia,serif;font-weight:normal;font-size:22px;margin:4px 0 12px}
 .panel h3{font-size:14px;color:#6b6358;margin:18px 0 6px;font-weight:600}
@@ -156,6 +157,9 @@ body.dark #kbd .w{background:#d9d6cf}
   <button class="b" data-theme="light">Clair</button><button class="b" data-theme="dark">Fonc&eacute;</button>
   <h3>Rep&egrave;res pendant la lecture</h3>
   <button class="b" data-mark="n">Note en couleur</button><button class="b" data-mark="m">Mesure surlign&eacute;e</button><button class="b" data-mark="c">Curseur</button><button class="b" data-mark="p">Notes jou&eacute;es p&acirc;lies</button>
+  <h3>Clavier : octaves visibles</h3>
+  <button class="b sm" data-oct="2">2</button><button class="b sm" data-oct="3">3</button><button class="b sm" data-oct="4">4</button><button class="b sm" data-oct="5">5</button><button class="b sm" data-oct="7">7</button>
+  <p style="font-size:14px;margin:4px 0 0;color:#6b6358">Les touches gardent leurs proportions ; faites glisser le clavier pour voir le reste.</p>
   <h3>Nom des notes</h3>
   <button class="b" data-names="fr">do r&eacute; mi</button><button class="b" data-names="en">C D E</button>
   <h3>Son du piano</h3>
@@ -177,7 +181,7 @@ body.dark #kbd .w{background:#d9d6cf}
   <div class="help">
     <p><b>Pas de son ?</b> V&eacute;rifiez le bouton lat&eacute;ral de l&rsquo;iPad : en position silence, il coupe le son des pages web.</p>
     <p><b>Toucher une note</b> la fait entendre et place le d&eacute;part de la lecture &agrave; cet endroit.</p>
-    <p><b>Boucle</b> : touchez le bouton, puis la premi&egrave;re et la derni&egrave;re note du passage. <b>Acc&eacute;l.</b> fait monter le tempo &agrave; chaque tour, du pourcentage de d&eacute;part jusqu&rsquo;&agrave; 100 %.</p>
+    <p><b>Boucle</b> : touchez le bouton (il affiche &laquo; d&eacute;but ? &raquo;), puis la premi&egrave;re note du passage ; le bouton affiche &laquo; fin ? &raquo; : touchez la derni&egrave;re note. Si vous touchez Lecture sans choisir de fin, la boucle va jusqu&rsquo;&agrave; la fin du morceau. <b>Acc&eacute;l.</b> fait monter le tempo &agrave; chaque tour, du pourcentage de d&eacute;part jusqu&rsquo;&agrave; 100 %.</p>
     <p><b>Masquer</b> cache des mesures au hasard, un dixi&egrave;me de plus &agrave; chaque appui, pour travailler de m&eacute;moire.</p>
     <p><b>P&eacute;dale ou clavier Bluetooth</b> : barre d&rsquo;espace = lecture / pause ; fl&egrave;ches ou Page suivante = tourner.</p>
     <p><b>Sans internet</b> : les morceaux d&eacute;j&agrave; charg&eacute;s restent disponibles. Ajoutez l&rsquo;appli &agrave; l&rsquo;&eacute;cran d&rsquo;accueil (bouton Partager de Safari) pour l&rsquo;ouvrir en plein &eacute;cran.</p>
