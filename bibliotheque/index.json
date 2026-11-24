@@ -1,6 +1,11 @@
 {
  "morceaux": [
   {
+   "id": "moon-light-sonata",
+   "title": "'Moon Light Sonata'",
+   "composer": ""
+  },
+  {
    "id": "au-clair-de-la-lune",
    "title": "Au clair de la lune",
    "composer": "Traditionnel"
@@ -31,9 +36,9 @@
    "composer": "Ch. Petzold (mélodie) — basse simplifiée"
   },
   {
-   "id": "moon-light-sonata",
-   "title": "'Moon Light Sonata'",
-   "composer": ""
+   "id": "bella-korobeiniki",
+   "title": "Bella Korobeïniki",
+   "composer": "Bella ciao (trad. italien) / Korobeïniki (trad. russe)"
   }
  ]
 }
