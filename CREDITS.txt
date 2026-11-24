@@ -1,0 +1,6 @@
+Lecteur de partitions — crédits
+
+Sons du piano enregistré : Versilian Studios Orchestra 2 (VSO2), via tonejs-instruments
+(N. Brosowsky, licence MIT) ; extraits réduits et compressés.
+Maple Leaf Rag (Scott Joplin, 1899, domaine public) : encodage du corpus libre music21.
+Au clair de la lune : traditionnel. Menuet en sol : mélodie de Christian Petzold, basse simplifiée.

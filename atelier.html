@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier — Partitions</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;background:#efebe2;color:#1b1b1b}
+header{background:#25221e;color:#fff;padding:14px 24px}
+header h1{margin:0;font:600 22px Georgia,serif}
+header p{margin:2px 0 0;color:#cfc8bb;font-size:14px}
+main{max-width:1180px;margin:0 auto;padding:18px 24px 60px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+section{background:#fffdf8;border-radius:10px;padding:16px 18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+h2{font:600 18px Georgia,serif;margin:0 0 10px}
+label{display:block;font-size:14px;color:#5b544a;margin:10px 0 3px}
+input[type=text],input[type=password],select{width:100%;font:inherit;padding:8px 10px;border:1px solid #c9c2b4;border-radius:7px;background:#fff}
+.btn{font:600 15px inherit;font-family:inherit;border:0;border-radius:8px;padding:10px 16px;background:#d1361f;color:#fff;cursor:pointer;margin:8px 6px 0 0}
+.btn.ghost{background:#e4ded2;color:#1b1b1b}
+.btn:disabled{opacity:.4;cursor:default}
+#drop{border:2px dashed #b9b1a2;border-radius:10px;padding:26px;text-align:center;color:#5b544a;cursor:pointer}
+#drop.over{border-color:#d1361f;background:#fbeee9}
+.warn{background:#fff4d6;border-left:4px solid #d9a400;padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px;margin:6px 0}
+.ok{background:#e6f3e6;border-left:4px solid #3a8a3a;padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px;margin:6px 0}
+.err{background:#fbe4e0;border-left:4px solid #d1361f;padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px;margin:6px 0}
+#preview{overflow-x:auto;background:#fff;border:1px solid #e2dccf;border-radius:6px;min-height:80px}
+#preview svg{display:block}
+.lib{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #eee6d8;font-size:15px}
+.lib button{font:inherit;font-size:13px;border:0;background:#eee6d8;border-radius:6px;padding:4px 8px;cursor:pointer}
+small{color:#6b6358}
+details summary{cursor:pointer;font-weight:600}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.k{fill:#111}.ks{stroke:#111;fill:none}.st{stroke:#555}.ts,.chord,.dyn,.tup{font-family:Georgia,serif}.ts,.chord{font-weight:bold}.dyn{font-style:italic;font-weight:bold}
+.mnum{fill:#888}.nm{fill:#5c6470}.mh{fill:transparent}.cursor{stroke:transparent}
+</style>
+</head>
+<body>
+<header>
+  <h1>Atelier</h1>
+  <p>Préparer une partition exportée de Dorico (MusicXML) et la ranger dans la bibliothèque du lecteur.</p>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>1. Ouvrir la partition</h2>
+      <div id="drop">Déposez ici un fichier <b>.musicxml</b>, <b>.xml</b> ou <b>.mxl</b><br><small>ou cliquez pour le choisir</small></div>
+      <input type="file" id="file" accept=".musicxml,.xml,.mxl" hidden>
+      <div id="notes"></div>
+    </section>
+    <section id="sCheck" hidden>
+      <h2>2. Vérifier</h2>
+      <div class="row2">
+        <div><label>Titre</label><input type="text" id="title"></div>
+        <div><label>Compositeur</label><input type="text" id="composer"></div>
+      </div>
+      <div class="row2">
+        <div><label>Portée du haut (main droite ou mélodie)</label><select id="st0"></select></div>
+        <div><label>Portée du bas (main gauche)</label><select id="st1"></select></div>
+      </div>
+      <label>Aperçu</label>
+      <div id="preview"></div>
+      <div id="stats"></div>
+    </section>
+    <section id="sPub" hidden>
+      <h2>3. Publier</h2>
+      <div id="pubInfo"></div>
+      <button class="btn" id="bPub">Publier dans la bibliothèque</button>
+      <button class="btn ghost" id="bDl">Télécharger les fichiers</button>
+      <div id="pubMsg"></div>
+    </section>
+  </div>
+  <aside>
+    <section>
+      <h2>Bibliothèque</h2>
+      <div id="libList"><small>Chargement…</small></div>
+    </section>
+    <section>
+      <details id="gh">
+        <summary>Réglage de la publication (GitHub)</summary>
+        <p><small>Une seule fois sur ce Mac. Voir la notice, partie « Publier depuis l’atelier ».</small></p>
+        <label>Compte GitHub</label><input type="text" id="ghOwner" placeholder="ex. etienne-charbonnier">
+        <label>Dépôt</label><input type="text" id="ghRepo" placeholder="ex. partitions">
+        <label>Branche</label><input type="text" id="ghBranch" placeholder="main">
+        <label>Jeton d’accès</label><input type="password" id="ghToken" placeholder="github_pat_…">
+        <button class="btn ghost" id="bGhSave">Enregistrer et tester</button>
+        <div id="ghMsg"></div>
+      </details>
+    </section>
+  </aside>
+</main>
+<script src="notation.js"></script>
+<script src="musicxml.js"></script>
+<script>
+{
+const $ = (id) => document.getElementById(id);
+const APP_FILES = ['index.html', 'app.js', 'notation.js', 'icone.png'];
+const SONS = [];
+for (let o = 1; o <= 7; o++) for (const n of ['C', 'Ds', 'Fs', 'A']) SONS.push('sons/' + n + o + '.mp3');
+SONS.push('sons/C8.mp3');
+
+let A = null, current = null, library = [], libFromGit = false;
+const gh = JSON.parse(localStorage.getItem('atelier.gh') || '{}');
+$('ghOwner').value = gh.owner || ''; $('ghRepo').value = gh.repo || ''; $('ghBranch').value = gh.branch || 'main'; $('ghToken').value = gh.token || '';
+if (!gh.token) $('gh').open = true;
+
+const box = (cls, html) => `<div class="${cls}">${html}</div>`;
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'morceau';
+
+/* ---------- GitHub ---------- */
+const ghOk = () => gh.owner && gh.repo && gh.token;
+const b64enc = (s) => { const u = new TextEncoder().encode(s); let b = ''; for (let i = 0; i < u.length; i += 0x8000) b += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(b); };
+const b64dec = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, '')), c => c.charCodeAt(0)));
+async function api(path, opt = {}) {
+  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${path}` + (opt.method ? '' : `?ref=${encodeURIComponent(gh.branch || 'main')}`);
+  const r = await fetch(url, { method: opt.method || 'GET', headers: { Authorization: 'Bearer ' + gh.token, Accept: 'application/vnd.github+json' }, body: opt.body ? JSON.stringify(opt.body) : undefined });
+  if (r.status === 404 && !opt.method) return null;
+  if (!r.ok) { const t = await r.text(); throw new Error('GitHub ' + r.status + ' : ' + (JSON.parse(t || '{}').message || t)); }
+  return r.status === 204 ? null : r.json();
+}
+async function ghGet(path) { const j = await api(path); return j ? { sha: j.sha, text: b64dec(j.content) } : null; }
+async function ghPut(path, text, msg) {
+  const old = await api(path);
+  return api(path, { method: 'PUT', body: { message: msg, content: b64enc(text), branch: gh.branch || 'main', sha: old ? old.sha : undefined } });
+}
+async function ghDel(path, msg) {
+  const old = await api(path);
+  if (old) await api(path, { method: 'DELETE', body: { message: msg, sha: old.sha, branch: gh.branch || 'main' } });
+}
+$('bGhSave').onclick = async () => {
+  Object.assign(gh, { owner: $('ghOwner').value.trim(), repo: $('ghRepo').value.trim(), branch: $('ghBranch').value.trim() || 'main', token: $('ghToken').value.trim() });
+  localStorage.setItem('atelier.gh', JSON.stringify(gh));
+  $('ghMsg').innerHTML = box('ok', 'Test en cours…');
+  try {
+    const r = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}`, { headers: { Authorization: 'Bearer ' + gh.token } });
+    if (!r.ok) throw new Error('dépôt introuvable ou jeton refusé (' + r.status + ')');
+    const j = await r.json();
+    if (j.permissions && !j.permissions.push) throw new Error('le jeton ne permet pas d’écrire dans ce dépôt');
+    $('ghMsg').innerHTML = box('ok', 'Connexion réussie au dépôt « ' + esc(j.full_name) + ' ».');
+    loadLibrary();
+  } catch (e) { $('ghMsg').innerHTML = box('err', 'Échec : ' + esc(e.message)); }
+};
+
+/* ---------- Bibliothèque ---------- */
+async function loadLibrary() {
+  try {
+    if (ghOk()) { const f = await ghGet('bibliotheque/index.json'); library = f ? JSON.parse(f.text).morceaux : []; libFromGit = true; }
+    else { const r = await fetch('bibliotheque/index.json', { cache: 'no-store' }); library = r.ok ? (await r.json()).morceaux : []; libFromGit = false; }
+  } catch (e) { library = []; $('libList').innerHTML = box('err', esc(e.message)); return; }
+  showLibrary();
+}
+function showLibrary() {
+  library.sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+  $('libList').innerHTML = library.length ? library.map(m => `<div class="lib"><span>${esc(m.title)}<br><small>${esc(m.composer || '')}</small></span>${ghOk() ? `<button data-del="${esc(m.id)}">Retirer</button>` : ''}</div>`).join('') : '<small>Aucun morceau pour l’instant.</small>';
+  if (!ghOk()) $('libList').innerHTML += '<p><small>Liste lue sur le site. Pour retirer un morceau, réglez la publication GitHub.</small></p>';
+}
+$('libList').onclick = async (e) => {
+  const id = e.target.getAttribute && e.target.getAttribute('data-del');
+  if (!id) return;
+  const m = library.find(x => x.id === id);
+  if (!confirm('Retirer « ' + m.title + ' » de la bibliothèque ?')) return;
+  try {
+    library = library.filter(x => x.id !== id);
+    await ghDel('bibliotheque/' + id + '.json', 'Retire ' + m.title);
+    await ghPut('bibliotheque/index.json', indexText(), 'Bibliothèque : retire ' + m.title);
+    await ghPut('lecteur.appcache', manifestText(), 'Mise à jour du cache hors connexion');
+    showLibrary();
+  } catch (err) { alert('Échec : ' + err.message); loadLibrary(); }
+};
+const indexText = () => JSON.stringify({ morceaux: library.map(m => ({ id: m.id, title: m.title, composer: m.composer || '' })) }, null, 1);
+function manifestText() {
+  const lines = ['CACHE MANIFEST', '# version ' + new Date().toISOString(), '', 'CACHE:', ...APP_FILES, ...SONS, 'bibliotheque/index.json', ...library.map(m => 'bibliotheque/' + m.id + '.json'), '', 'NETWORK:', '*', ''];
+  return lines.join('\n');
+}
+
+/* ---------- Ouverture ---------- */
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); };
+$('file').onchange = (e) => { if (e.target.files[0]) openFile(e.target.files[0]); };
+
+async function openFile(f) {
+  $('notes').innerHTML = '';
+  try {
+    const text = /\.mxl$/i.test(f.name) ? await MusicXML.unzip(await f.arrayBuffer()) : await f.text();
+    A = MusicXML.analyse(text);
+    if (!A.staves.length) throw new Error('Aucune portée trouvée.');
+    const opts = A.staves.map((s, i) => `<option value="${i}">${esc(s.label)}</option>`).join('');
+    $('st0').innerHTML = opts;
+    $('st1').innerHTML = '<option value="-1">aucune (une seule portée)</option>' + opts;
+    let a = 0, b = A.staves.length > 1 ? 1 : -1;
+    const two = A.staves.findIndex((s, i) => i + 1 < A.staves.length && A.staves[i + 1].part === s.part && A.staves[i + 1].staff === 2);
+    if (two >= 0) { a = two; b = two + 1; }
+    $('st0').value = a; $('st1').value = b;
+    $('title').value = A.title || f.name.replace(/\.(musicxml|xml|mxl)$/i, '');
+    $('composer').value = A.composer || '';
+    $('sCheck').hidden = false; $('sPub').hidden = false;
+    $('notes').innerHTML = box('ok', 'Fichier lu : ' + esc(f.name) + ' — ' + A.staves.length + ' portée(s).');
+    convert();
+  } catch (e) { $('notes').innerHTML = box('err', esc(e.message)); $('sCheck').hidden = $('sPub').hidden = true; }
+}
+['st0', 'st1'].forEach(id => $(id).onchange = convert);
+$('title').oninput = $('composer').oninput = () => { if (current) { current.score.title = $('title').value.trim(); current.score.composer = $('composer').value.trim(); pubInfo(); } };
+
+function convert() {
+  const keep = [+$('st0').value];
+  if (+$('st1').value >= 0 && +$('st1').value !== keep[0]) keep.push(+$('st1').value);
+  const title = $('title').value.trim() || 'Sans titre';
+  try {
+    current = MusicXML.convert(A, keep, { id: slug(title), title, composer: $('composer').value.trim() });
+  } catch (e) { $('stats').innerHTML = box('err', 'Conversion impossible : ' + esc(e.message)); return; }
+  const prep = Notation.prepare(current.score, 0);
+  const pv = $('preview');
+  Notation.render(pv, prep, { width: Math.max(600, pv.clientWidth - 2), S: 9, staves: current.score.staves > 1 ? [0, 1] : [0] });
+  const nNotes = prep.events.reduce((a, e) => a + e.notes.length, 0);
+  $('stats').innerHTML = box('ok', `${current.score.measures.length} mesures, ${nNotes} notes, tempo ${current.score.tempo} à la noire.`) +
+    current.warnings.map(w => box('warn', esc(w))).join('');
+  pubInfo();
+}
+function pubInfo() {
+  const id = slug($('title').value.trim() || 'Sans titre');
+  const exists = library.some(m => m.id === id);
+  $('pubInfo').innerHTML = (exists ? box('warn', 'Un morceau porte déjà ce titre : il sera remplacé.') : '') +
+    (ghOk() ? '<p><small>Le morceau sera envoyé sur GitHub ; il apparaît dans le lecteur environ une minute plus tard.</small></p>'
+      : '<p><small>Publication GitHub non réglée : utilisez « Télécharger les fichiers » et déposez-les sur votre hébergement (voir la notice).</small></p>');
+  $('bPub').disabled = !ghOk();
+}
+
+/* ---------- Publication ---------- */
+function finalScore() {
+  const s = current.score;
+  s.title = $('title').value.trim() || 'Sans titre';
+  s.composer = $('composer').value.trim();
+  s.id = slug(s.title);
+  return s;
+}
+function addToLibrary(s) {
+  library = library.filter(m => m.id !== s.id);
+  library.push({ id: s.id, title: s.title, composer: s.composer });
+}
+$('bPub').onclick = async () => {
+  const s = finalScore();
+  $('bPub').disabled = true;
+  $('pubMsg').innerHTML = box('ok', 'Envoi en cours…');
+  try {
+    await loadLibrary();
+    addToLibrary(s);
+    await ghPut('bibliotheque/' + s.id + '.json', JSON.stringify(s), 'Ajoute ' + s.title);
+    await ghPut('bibliotheque/index.json', indexText(), 'Bibliothèque : ' + s.title);
+    await ghPut('lecteur.appcache', manifestText(), 'Mise à jour du cache hors connexion');
+    showLibrary();
+    $('pubMsg').innerHTML = box('ok', '« ' + esc(s.title) + ' » est publié. Il sera visible dans le lecteur d’ici une minute environ.');
+  } catch (e) { $('pubMsg').innerHTML = box('err', 'Échec : ' + esc(e.message)); }
+  $('bPub').disabled = false;
+};
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+$('bDl').onclick = () => {
+  const s = finalScore();
+  addToLibrary(s);
+  download(s.id + '.json', JSON.stringify(s));
+  setTimeout(() => download('index.json', indexText()), 400);
+  setTimeout(() => download('lecteur.appcache', manifestText()), 800);
+  showLibrary();
+  $('pubMsg').innerHTML = box('ok', 'Trois fichiers téléchargés : déposez <b>' + esc(s.id) + '.json</b> et <b>index.json</b> dans le dossier « bibliotheque » du site, et <b>lecteur.appcache</b> à la racine.');
+};
+
+loadLibrary();
+}
+</script>
+</body>
+</html>

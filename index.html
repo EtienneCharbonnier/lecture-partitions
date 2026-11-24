@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr" manifest="lecteur.appcache">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Partitions">
+<link rel="apple-touch-icon" href="icone.png">
+<title>Partitions</title>
+<style>
+*{-webkit-tap-highlight-color:rgba(0,0,0,0);box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;background:#efebe2;color:#1b1b1b;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none}
+#top{position:fixed;top:0;left:0;right:0;z-index:20;background:#25221e;color:#fff;padding:4px 6px 2px}
+.row{display:block;line-height:46px;white-space:normal}
+.b{-webkit-appearance:none;appearance:none;border:0;border-radius:7px;background:#4a453d;color:#fff;font:inherit;font-size:15px;height:40px;padding:0 9px;margin:2px 1px;vertical-align:middle;cursor:pointer}
+.b.on{background:#d1361f}
+.b.big{background:#d1361f;min-width:104px;font-weight:600}
+.b.sm{padding:0 9px;min-width:38px}
+.b[disabled]{opacity:.35}
+.lbl{display:inline-block;vertical-align:middle;font-size:14px;color:#cfc8bb;margin:0 2px 0 6px}
+.val{display:inline-block;vertical-align:middle;min-width:34px;text-align:center;font-size:16px}
+#ttl{display:inline-block;vertical-align:middle;font-size:17px;font-weight:600;max-width:20%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 8px}
+#tempo{width:130px;vertical-align:middle;margin:0 3px}
+#tLab{display:inline-block;min-width:92px;text-align:center;vertical-align:middle;font-size:16px}
+.sep{display:inline-block;width:10px}
+#msg{position:fixed;left:50%;top:120px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#25221e;color:#fff;padding:10px 16px;border-radius:9px;z-index:40;font-size:16px;display:none;max-width:90%;text-align:center}
+#view{padding:8px 0 30px}
+#view.h{overflow-x:scroll;overflow-y:hidden;-webkit-overflow-scrolling:touch;white-space:nowrap}
+#view.p{position:relative;overflow:hidden}
+#view.p svg.sys{position:absolute;left:0}
+#score{margin:0 auto}
+svg.sys{display:block;background:#fffdf8;margin:0 auto 4px}
+#view.h svg.sys{display:inline-block;margin:0}
+#title{text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:24px;margin:6px 0 0}
+#composer{text-align:center;color:#6b6358;font-size:14px;margin:0 0 6px}
+#wrapline{position:absolute;left:0;right:0;height:0;border-top:2px dashed #d1361f;display:none}
+#kbd{position:fixed;left:0;right:0;bottom:0;height:120px;background:#25221e;z-index:15;display:none;padding:6px 4px 4px}
+#kbd .w,#kbd .k2{position:absolute;top:0;border-radius:0 0 4px 4px}
+#kbd .w{background:#fbfaf6;border:1px solid #888;height:100%}
+#kbd .k2{background:#1b1b1b;height:62%;z-index:2}
+#kbd .w.on0,#kbd .k2.on0{background:#d1361f}
+#kbd .w.on1,#kbd .k2.on1{background:#1f5fbf}
+#kbd .w span{position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:11px;color:#777}
+#kin{position:relative;height:100%}
+.panel{position:fixed;top:0;bottom:0;right:0;width:420px;max-width:100%;background:#fbf9f4;color:#1b1b1b;z-index:30;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:-4px 0 18px rgba(0,0,0,.3);display:none;padding:14px 16px 40px}
+.panel h2{font-family:Georgia,serif;font-weight:normal;font-size:22px;margin:4px 0 12px}
+.panel h3{font-size:14px;color:#6b6358;margin:18px 0 6px;font-weight:600}
+.panel .b{background:#e4ded2;color:#1b1b1b}
+.panel .b.on{background:#d1361f;color:#fff}
+.panel .close{float:right}
+.panel input[type=range]{width:200px;vertical-align:middle}
+#libPanel{left:0;right:auto;box-shadow:4px 0 18px rgba(0,0,0,.3)}
+#search{width:100%;font-size:17px;padding:9px 10px;border:1px solid #c9c2b4;border-radius:8px;margin-bottom:8px}
+.item{padding:11px 8px;border-bottom:1px solid #e2dccf;cursor:pointer}
+.item b{display:block;font-weight:600}
+.item small{color:#6b6358}
+.item.sel{background:#f6e3dd}
+.help p{font-size:15px;line-height:1.45;margin:6px 0}
+#bTools{display:none}
+@media (max-width:700px){#tools{display:none}#top.open #tools{display:block}#bTools{display:inline-block}#tempo{width:80px}#ttl{max-width:30%}}
+/* partition */
+.k{fill:#111}
+.ks{stroke:#111;fill:none}
+.st{stroke:#555}
+.ts,.chord,.dyn,.tup{font-family:Georgia,"Times New Roman",serif}
+.ts{font-weight:bold}
+.chord{font-weight:bold}
+.dyn{font-style:italic;font-weight:bold}
+.mnum{fill:#888}
+.nm{fill:#5c6470;font-family:-apple-system,Helvetica,Arial,sans-serif}
+.fg{font-family:-apple-system,Helvetica,Arial,sans-serif}
+.mh{fill:transparent}
+.mark-m .mh.on{fill:rgba(209,54,31,.09)}
+.cursor{stroke:transparent}
+.mark-c .cursor.on{stroke:rgba(209,54,31,.55)}
+.mark-n .ev.cur.h0 .k{fill:#d1361f}
+.mark-n .ev.cur.h0 .ks{stroke:#d1361f}
+.mark-n .ev.cur.h1 .k{fill:#1f5fbf}
+.mark-n .ev.cur.h1 .ks{stroke:#1f5fbf}
+.mark-p .ev.pl{opacity:.32}
+.ev.hid{opacity:0}
+.loopband{fill:rgba(31,95,191,.10)}
+.ann path{stroke:#1f5fbf;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* écran foncé */
+body.dark{background:#0f1114;color:#e8e6e1}
+body.dark svg.sys{background:#181b20}
+body.dark #title{color:#e8e6e1}
+body.dark .k{fill:#e8e6e1}
+body.dark .ks{stroke:#e8e6e1}
+body.dark .st{stroke:#9aa0a8}
+body.dark .nm{fill:#aab2bd}
+body.dark .mnum{fill:#8a9099}
+body.dark.mark-n .ev.cur.h0 .k{fill:#ff6b4f}
+body.dark.mark-n .ev.cur.h0 .ks{stroke:#ff6b4f}
+body.dark.mark-n .ev.cur.h1 .k{fill:#6ea8ff}
+body.dark.mark-n .ev.cur.h1 .ks{stroke:#6ea8ff}
+body.dark.mark-m .mh.on{fill:rgba(255,107,79,.13)}
+body.dark.mark-c .cursor.on{stroke:rgba(255,107,79,.6)}
+body.dark .ann path{stroke:#6ea8ff}
+body.dark .loopband{fill:rgba(110,168,255,.14)}
+body.dark .panel{background:#1d2026;color:#e8e6e1}
+body.dark .panel .b{background:#343a44;color:#e8e6e1}
+body.dark .panel .b.on{background:#d1361f;color:#fff}
+body.dark .item{border-color:#343a44}
+body.dark .item.sel{background:#3a2a26}
+body.dark #search{background:#14161a;color:#e8e6e1;border-color:#444}
+body.dark #kbd .w{background:#d9d6cf}
+</style>
+</head>
+<body class="mark-n mark-m mark-c mark-p">
+<div id="top">
+  <div class="row">
+    <button class="b" id="bLib">&#9776; Morceaux</button>
+    <span id="ttl"></span>
+    <button class="b big" id="bPlay">&#9654;&#xFE0E; Lecture</button>
+    <button class="b sm" id="bStop">&#9632;&#xFE0E;</button>
+    <span class="sep"></span>
+    <button class="b sm" id="bTm">&minus;</button><input id="tempo" type="range" min="30" max="240" step="1" value="100"><button class="b sm" id="bTp">+</button>
+    <span id="tLab"></span>
+    <button class="b" id="bTools">Outils</button><button class="b" id="bKbd">Clavier</button><button class="b" id="bAnn">Annoter</button><button class="b" id="bUndo" style="display:none">Annuler</button>
+    <button class="b" id="bSet">R&eacute;glages</button>
+  </div>
+  <div class="row" id="tools">
+    <span id="hands">
+      <span class="lbl">MD</span><button class="b sm on" id="h0s">son</button><button class="b sm on" id="h0v">vue</button>
+      <span class="lbl">MG</span><button class="b sm on" id="h1s">son</button><button class="b sm on" id="h1v">vue</button>
+    </span>
+    <button class="b" id="bLoop">Boucle</button><button class="b" id="bAcc">Acc&eacute;l.</button>
+    <span class="lbl">Transp.</span><button class="b sm" id="bT1">&minus;</button><span class="val" id="tVal">0</span><button class="b sm" id="bT2">+</button>
+    <button class="b" id="bMet">M&eacute;tro</button><button class="b" id="bCnt">D&eacute;compte</button>
+    <button class="b" id="bNames">Noms</button>
+    <span class="lbl">Masquer</span><button class="b sm" id="bH1">&minus;</button><span class="val" id="hVal">0</span><button class="b sm" id="bH2">+</button>
+  </div>
+</div>
+<div id="view"><div id="title"></div><div id="composer"></div><div id="score"></div><div id="wrapline"></div></div>
+<div id="kbd"><div id="kin"></div></div>
+<div id="msg"></div>
+
+<div class="panel" id="libPanel">
+  <button class="b close" id="libClose">Fermer</button>
+  <h2>Morceaux</h2>
+  <input id="search" type="search" placeholder="Rechercher un titre" autocomplete="off" autocorrect="off" autocapitalize="off">
+  <div id="libList"></div>
+</div>
+
+<div class="panel" id="setPanel">
+  <button class="b close" id="setClose">Fermer</button>
+  <h2>R&eacute;glages</h2>
+  <h3>Affichage</h3>
+  <button class="b" data-mode="v">Partition enti&egrave;re</button><button class="b" data-mode="h">Ligne unique</button><button class="b" data-mode="p">Demi-page</button>
+  <h3>Taille des notes</h3>
+  <button class="b sm" id="z1">&minus;</button><span class="val" id="zVal">100 %</span><button class="b sm" id="z2">+</button>
+  <h3>&Eacute;cran</h3>
+  <button class="b" data-theme="light">Clair</button><button class="b" data-theme="dark">Fonc&eacute;</button>
+  <h3>Rep&egrave;res pendant la lecture</h3>
+  <button class="b" data-mark="n">Note en couleur</button><button class="b" data-mark="m">Mesure surlign&eacute;e</button><button class="b" data-mark="c">Curseur</button><button class="b" data-mark="p">Notes jou&eacute;es p&acirc;lies</button>
+  <h3>Nom des notes</h3>
+  <button class="b" data-names="fr">do r&eacute; mi</button><button class="b" data-names="en">C D E</button>
+  <h3>Son du piano</h3>
+  <button class="b" data-sound="synth">Synth&eacute;tis&eacute;</button><button class="b" data-sound="piano">Piano enregistr&eacute;</button>
+  <div style="margin-top:8px">Piano <input type="range" id="vol" min="0" max="100"> </div>
+  <div>M&eacute;tronome <input type="range" id="mvol" min="0" max="100"></div>
+  <div id="chordBox">
+    <h3>Grille d&rsquo;accords</h3>
+    <button class="b" id="bChords">Jouer les accords</button>
+  </div>
+  <h3>Accompagnement</h3>
+  <button class="b" id="bAccomp">Accompagnement seul</button>
+  <h3>Acc&eacute;l&eacute;ration progressive (en boucle)</h3>
+  D&eacute;part <button class="b sm" id="a1">&minus;</button><span class="val" id="aVal">60 %</span><button class="b sm" id="a2">+</button>
+  &nbsp; Pas <button class="b sm" id="s1">&minus;</button><span class="val" id="sVal">5 %</span><button class="b sm" id="s2">+</button>
+  <h3>Annotations de ce morceau</h3>
+  <button class="b" id="bAnnClear">Tout effacer</button>
+  <h3>Aide</h3>
+  <div class="help">
+    <p><b>Pas de son ?</b> V&eacute;rifiez le bouton lat&eacute;ral de l&rsquo;iPad : en position silence, il coupe le son des pages web.</p>
+    <p><b>Toucher une note</b> la fait entendre et place le d&eacute;part de la lecture &agrave; cet endroit.</p>
+    <p><b>Boucle</b> : touchez le bouton, puis la premi&egrave;re et la derni&egrave;re note du passage. <b>Acc&eacute;l.</b> fait monter le tempo &agrave; chaque tour, du pourcentage de d&eacute;part jusqu&rsquo;&agrave; 100 %.</p>
+    <p><b>Masquer</b> cache des mesures au hasard, un dixi&egrave;me de plus &agrave; chaque appui, pour travailler de m&eacute;moire.</p>
+    <p><b>P&eacute;dale ou clavier Bluetooth</b> : barre d&rsquo;espace = lecture / pause ; fl&egrave;ches ou Page suivante = tourner.</p>
+    <p><b>Sans internet</b> : les morceaux d&eacute;j&agrave; charg&eacute;s restent disponibles. Ajoutez l&rsquo;appli &agrave; l&rsquo;&eacute;cran d&rsquo;accueil (bouton Partager de Safari) pour l&rsquo;ouvrir en plein &eacute;cran.</p>
+    <p><b>Veille</b> : pendant une longue lecture, allongez le &laquo; Verrouillage automatique &raquo; dans les R&eacute;glages de l&rsquo;iPad.</p>
+  </div>
+</div>
+
+<script src="notation.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
