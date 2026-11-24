@@ -1,5 +1,5 @@
 CACHE MANIFEST
-# version 2026-11-24T12:46:49.660Z
+# version 2026-11-24T12:47:24.806Z
 
 CACHE:
 index.html
@@ -39,11 +39,12 @@ sons/A7.mp3
 sons/C8.mp3
 bibliotheque/index.json
 bibliotheque/au-clair-de-la-lune.json
+bibliotheque/ave-maria-version-simplifiee.json
 bibliotheque/exercice-demonstration.json
 bibliotheque/maple-leaf-rag.json
 bibliotheque/menuet-de-bach.json
 bibliotheque/menuet-en-sol.json
-bibliotheque/ave-maria-version-simplifiee.json
+bibliotheque/moon-light-sonata.json
 
 NETWORK:
 *
