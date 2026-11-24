@@ -59,7 +59,23 @@ svg.sys{display:block;background:#fffdf8;margin:0 auto 4px}
 .item small{color:#6b6358}
 .item.sel{background:#f6e3dd}
 .help p{font-size:15px;line-height:1.45;margin:6px 0}
+.panel .note{font-size:14px;color:#6b6358;line-height:1.45;margin:0 0 6px}
+.txt{width:100%;font-size:16px;padding:9px 10px;border:1px solid #c9c2b4;border-radius:8px;margin:2px 0 6px;font-family:inherit;background:#fff;color:#1b1b1b}
+textarea.txt{font-family:Menlo,Courier,monospace;font-size:13px}
+.box{border-radius:8px;padding:10px 12px;margin:10px 0;font-size:15px;line-height:1.45}
+.box.ok{background:#e6f3e6}.box.warn{background:#fff4d6}.box.err{background:#fbe4e0}
+.box ol,.box ul{margin:6px 0 0;padding-left:20px}
+.sec{font-size:13px;font-weight:600;color:#6b6358;margin:14px 0 2px;text-transform:none}
+.item .acts{float:right}
+.item .acts .b{height:32px;font-size:13px;padding:0 8px;margin:0 0 0 4px}
+label.b{display:inline-block;line-height:40px}
+body.dark .txt{background:#14161a;color:#e8e6e1;border-color:#444}
+body.dark .box.ok{background:#20352a}body.dark .box.warn{background:#3a3220}body.dark .box.err{background:#3a2420}
 #bTools{display:none}
+#mini{position:fixed;top:6px;left:6px;z-index:21;display:none;background:rgba(37,34,30,.82);border-radius:10px;padding:2px 3px}
+#mini .b{margin:2px}
+body.mini #top{display:none}
+body.mini #mini{display:block}
 @media (max-width:700px){#tools{display:none}#top.open #tools{display:block}#bTools{display:inline-block}#tempo{width:80px}#ttl{max-width:30%}}
 /* partition */
 .k{fill:#111}
@@ -113,6 +129,7 @@ body.dark #kbd .w{background:#d9d6cf}
 <body class="mark-n mark-m mark-c mark-p">
 <div id="top">
   <div class="row">
+    <button class="b sm" id="bHide" title="Replier la barre">&minus;</button>
     <button class="b" id="bLib">&#9776; Morceaux</button>
     <span id="ttl"></span>
     <button class="b big" id="bPlay">&#9654;&#xFE0E; Lecture</button>
@@ -133,8 +150,10 @@ body.dark #kbd .w{background:#d9d6cf}
     <button class="b" id="bMet">M&eacute;tro</button><button class="b" id="bCnt">D&eacute;compte</button>
     <button class="b" id="bNames">Noms</button>
     <span class="lbl">Masquer</span><button class="b sm" id="bH1">&minus;</button><span class="val" id="hVal">0</span><button class="b sm" id="bH2">+</button>
+    <span class="lbl">Taille</span><button class="b sm" id="bZ1">&minus;</button><span class="val" id="zVal2">100&nbsp;%</span><button class="b sm" id="bZ2">+</button>
   </div>
 </div>
+<div id="mini"><button class="b sm" id="bShow" title="Afficher la barre">+</button><button class="b sm" id="bPlay2">&#9654;&#xFE0E;</button></div>
 <div id="view"><div id="title"></div><div id="composer"></div><div id="score"></div><div id="wrapline"></div></div>
 <div id="kbd"><div id="kin"></div></div>
 <div id="msg"></div>
@@ -142,8 +161,30 @@ body.dark #kbd .w{background:#d9d6cf}
 <div class="panel" id="libPanel">
   <button class="b close" id="libClose">Fermer</button>
   <h2>Morceaux</h2>
+  <button class="b big" id="bImport" style="margin:0 0 10px">+ Importer une partition</button>
   <input id="search" type="search" placeholder="Rechercher un titre" autocomplete="off" autocorrect="off" autocapitalize="off">
   <div id="libList"></div>
+</div>
+
+<div class="panel" id="impPanel">
+  <button class="b close" id="impClose">Fermer</button>
+  <h2>Importer une partition</h2>
+  <p class="note">Fichiers MusicXML (.musicxml, .xml, .mxl), export&eacute;s par exemple de Dorico ou MuseScore, ou partition partag&eacute;e depuis cette appli (.json). Le morceau est rang&eacute; sur cet appareil, dans &laquo; Mes morceaux &raquo;.</p>
+  <h3>Depuis un fichier</h3>
+  <label class="b" id="fileLbl" style="position:relative;overflow:hidden">Choisir un fichier&hellip;<input type="file" id="impFile" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;font-size:40px;cursor:pointer"></label>
+  <h3>Depuis une adresse internet</h3>
+  <input type="url" id="impUrl" class="txt" placeholder="https://&hellip;/morceau.musicxml" autocomplete="off" autocorrect="off" autocapitalize="off">
+  <button class="b" id="impGo">Importer depuis l&rsquo;adresse</button>
+  <h3>En collant le texte</h3>
+  <textarea id="impText" class="txt" rows="4" placeholder="Collez ici le contenu d&rsquo;un fichier MusicXML ou d&rsquo;une partition partag&eacute;e"></textarea>
+  <button class="b" id="impPaste">Importer le texte coll&eacute;</button>
+  <div id="impRes"></div>
+</div>
+
+<div class="panel" id="sharePanel">
+  <button class="b close" id="shareClose">Fermer</button>
+  <h2>Partager</h2>
+  <div id="shareBody"></div>
 </div>
 
 <div class="panel" id="setPanel">
@@ -189,7 +230,9 @@ body.dark #kbd .w{background:#d9d6cf}
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="notation.js"></script>
+<script src="musicxml.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

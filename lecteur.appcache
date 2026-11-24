@@ -1,10 +1,12 @@
 CACHE MANIFEST
-# version 2026-11-24T12:00:00Z
+# version 2026-11-24T15:00:00Z
 
 CACHE:
 index.html
+config.js
 app.js
 notation.js
+musicxml.js
 icone.png
 sons/C1.mp3
 sons/Ds1.mp3

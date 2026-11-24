@@ -44,7 +44,7 @@ function msg(t, ms) {
 /* ------------------------------------------------------------ réglages */
 var SET = store('set') || {};
 var DEF = { theme: 'light', mode: 'v', marks: { n: 1, m: 1, c: 1, p: 1 }, names: 'fr', namesOn: 0, sound: 'synth', vol: 80, mvol: 60,
-  metro: 0, countin: 1, kbd: 0, kbdOct: 3, accStart: 60, accStep: 5, last: null };
+  metro: 0, countin: 1, kbd: 0, kbdOct: 3, mini: 0, accStart: 60, accStep: 5, last: null };
 for (var dk in DEF) if (DEF.hasOwnProperty(dk) && SET[dk] === undefined) SET[dk] = DEF[dk];
 function saveSet() { store('set', SET); }
 
@@ -318,7 +318,7 @@ function play(fromSi, noCount) {
     t += n * unit * spt;
   }
   P.next = t;
-  $('bPlay').innerHTML = '&#10074;&#10074; Pause';
+  $('bPlay').innerHTML = '&#10074;&#10074; Pause'; $('bPlay2').innerHTML = '&#10074;&#10074;';
   setCls($('bPlay'), 'on', true);
   tick();
   frame();
@@ -328,7 +328,7 @@ function stop(rewind) {
   clearTimeout(P.timer);
   for (var i = 0; i < voices.length; i++) stopAt(voices[i].s, 0);
   voices = [];
-  $('bPlay').innerHTML = '&#9654;&#xFE0E; Lecture';
+  $('bPlay').innerHTML = '&#9654;&#xFE0E; Lecture'; $('bPlay2').innerHTML = '&#9654;&#xFE0E;';
   setCls($('bPlay'), 'on', false);
   if (rewind) { P.start = loopA !== null ? loopA : 0; clearMarks(); }
   else if (P.lastSi >= 0) P.start = P.lastSi;
@@ -432,12 +432,12 @@ function moveCursor(sl, frac, nsl) {
 
 /* ------------------------------------------------------------ affichage */
 var pageBase = 0;
-function viewHeight() { return window.innerHeight - $('top').offsetHeight - (SET.kbd ? $('kbd').offsetHeight : 0); }
+function viewHeight() { return window.innerHeight - (SET.mini ? 0 : $('top').offsetHeight) - (SET.kbd ? $('kbd').offsetHeight : 0); }
 function render() {
   if (!score) return;
   var view = $('view'), box = $('score');
   view.className = SET.mode === 'h' ? 'h' : SET.mode === 'p' ? 'p' : '';
-  view.style.marginTop = $('top').offsetHeight + 'px';
+  view.style.marginTop = (SET.mini ? 0 : $('top').offsetHeight) + 'px';
   view.style.marginBottom = SET.kbd ? ($('kbd').offsetHeight + 10) + 'px' : '0';
   var W = Math.max(320, document.documentElement.clientWidth - 8);
   var base = W >= 900 ? 10.5 : (W >= 600 ? 9.5 : 7.5);
@@ -669,37 +669,207 @@ function fold(s) {
   for (var i = 0; i < s.length; i++) { var k = a.indexOf(s.charAt(i)); o += k >= 0 ? b.charAt(k) : s.charAt(i); }
   return o;
 }
+/* morceaux importés : rangés sur l'appareil */
+function imports() { return store('imports') || []; }
+function saveImports(l) { store('imports', l); }
+function importData(id) { try { return localStorage.getItem('lp.imp.' + id); } catch (e) { return null; } }
 function loadLibrary() {
   xhr('bibliotheque/index.json', null, function (txt) {
     try { lib = JSON.parse(txt).morceaux || []; } catch (e) { lib = []; }
-    lib.sort(function (a, b) { return fold(a.title) < fold(b.title) ? -1 : 1; });
-    showLib();
-    var id = SET.last, found = false;
-    each(lib, function (m) { if (m.id === id) found = true; });
-    if (!found && lib.length) id = lib[0].id;
-    if (id) openScore(id);
-    else { $('title').textContent = 'Bibliothèque vide'; $('composer').textContent = 'Ajoutez des morceaux depuis l’atelier, sur le Mac.'; }
+    afterLib();
     setTimeout(prefetchAll, 4000);
-  }, function () { msg('Bibliothèque introuvable. Vérifiez la connexion.', 5000); });
+  }, function () { lib = []; afterLib(); });
+}
+function afterLib() {
+  lib.sort(function (a, b) { return fold(a.title) < fold(b.title) ? -1 : 1; });
+  showLib();
+  var id = SET.last, imp = imports(), found = false;
+  each(lib, function (m) { if (m.id === id) found = true; });
+  each(imp, function (m) { if (m.id === id) found = true; });
+  if (!found) id = imp.length ? imp[0].id : (lib.length ? lib[0].id : null);
+  if (id) openScore(id);
+  else { $('title').textContent = 'Aucun morceau'; $('composer').textContent = 'Touchez « Morceaux » puis « Importer une partition ».'; }
 }
 function prefetchAll() { each(lib, function (m, i) { setTimeout(function () { xhr('bibliotheque/' + m.id + '.json', null, function () {}); }, i * 300); }); }
 function showLib() {
-  var q = fold($('search').value || ''), html = '';
-  each(lib, function (m) {
-    if (q && fold(m.title + ' ' + (m.composer || '')).indexOf(q) < 0) return;
-    html += '<div class="item' + (score && score.id === m.id ? ' sel' : '') + '" data-id="' + m.id + '"><b>' + esc(m.title) + '</b><small>' + esc(m.composer || '') + '</small></div>';
-  });
-  $('libList').innerHTML = html || '<p>Aucun morceau.</p>';
+  var q = fold($('search').value || ''), html = '', imp = imports(), n = 0;
+  function row(m, mine) {
+    if (q && fold(m.title + ' ' + (m.composer || '')).indexOf(q) < 0) return '';
+    n++;
+    return '<div class="item' + (score && score.id === m.id ? ' sel' : '') + '" data-id="' + esc(m.id) + '">' +
+      (mine ? '<span class="acts"><button class="b" data-share="' + esc(m.id) + '">Partager</button><button class="b" data-del="' + esc(m.id) + '">Supprimer</button></span>' : '') +
+      '<b>' + esc(m.title) + '</b><small>' + esc(m.composer || '') + '</small></div>';
+  }
+  if (imp.length) { html += '<div class="sec">Mes morceaux (sur cet appareil)</div>'; each(imp, function (m) { html += row(m, true); }); }
+  if (lib.length) { html += '<div class="sec">Morceaux du site</div>'; each(lib, function (m) { html += row(m, false); }); }
+  $('libList').innerHTML = n ? html : '<p>Aucun morceau. Touchez « Importer une partition ».</p>';
 }
-function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 function openScore(id) {
   stop(true);
+  var local = importData(id);
+  if (local) {
+    try { SET.last = id; saveSet(); setScore(JSON.parse(local)); } catch (e) { msg('Partition illisible.'); }
+    return;
+  }
   xhr('bibliotheque/' + id + '.json', null, function (txt) {
     var sc;
     try { sc = JSON.parse(txt); } catch (e) { msg('Partition illisible.'); return; }
     SET.last = id; saveSet();
     setScore(sc);
   }, function () { msg('Impossible d’ouvrir ce morceau (pas encore disponible hors connexion ?).', 4000); });
+}
+
+/* ------------------------------------------------------------ importer */
+var pending = null; /* { A, text, name } en attente de confirmation */
+function showImpRes(html) { $('impRes').innerHTML = html; }
+function impError(t) { showImpRes('<div class="box err">' + t + '</div>'); }
+function handleText(text, srcName) {
+  pending = null;
+  try {
+    if (/^\s*\{/.test(text)) {
+      var r = MusicXML.fromAny(text);
+      addImport(r.score, []);
+      return;
+    }
+    if (/^\s*<!doctype html|^\s*<html/i.test(text)) { impError('Cette adresse mène à une page web, pas à un fichier MusicXML. Cherchez sur la page un lien de téléchargement « MusicXML » ou « .mxl ».'); return; }
+    var A = MusicXML.analyse(text);
+    if (!A.staves.length) throw new Error('Aucune portée trouvée.');
+    pending = { A: A };
+    var keep = MusicXML.defaultKeep(A), opts = '', i;
+    for (i = 0; i < A.staves.length; i++) opts += '<option value="' + i + '">' + esc(A.staves[i].label) + '</option>';
+    var title = A.title || (srcName || '').replace(/\.(musicxml|xml|mxl)$/i, '') || 'Sans titre';
+    showImpRes('<div class="box ok"><b>Partition lue.</b> Vérifiez puis touchez « Ajouter ».' +
+      '<div style="margin-top:8px">Titre<input class="txt" id="pTitle" value="' + esc(title) + '"></div>' +
+      '<div>Compositeur<input class="txt" id="pComp" value="' + esc(A.composer || '') + '"></div>' +
+      (A.staves.length > 1 ? '<div>Portée du haut (main droite)<select class="txt" id="pS0">' + opts + '</select></div>' +
+        '<div>Portée du bas (main gauche)<select class="txt" id="pS1"><option value="-1">aucune</option>' + opts + '</select></div>' : '') +
+      '<button class="b big" id="pAdd">Ajouter à mes morceaux</button></div>');
+    if (A.staves.length > 1) { $('pS0').value = keep[0]; $('pS1').value = keep.length > 1 ? keep[1] : -1; }
+    tap($('pAdd'), confirmImport);
+  } catch (e) {
+    impError(e.message === 'JSON' ? 'Fichier .json non reconnu.' : 'Lecture impossible : ' + esc(e.message));
+  }
+}
+function confirmImport() {
+  if (!pending) return;
+  var A = pending.A, keep = [0];
+  if (A.staves.length > 1) {
+    keep = [+$('pS0').value];
+    var b = +$('pS1').value;
+    if (b >= 0 && b !== keep[0]) keep.push(b);
+  }
+  var title = ($('pTitle').value || '').replace(/^\s+|\s+$/g, '') || 'Sans titre';
+  try {
+    var r = MusicXML.convert(A, keep, { id: '', title: title, composer: ($('pComp').value || '').replace(/^\s+|\s+$/g, '') });
+    addImport(r.score, r.warnings);
+  } catch (e) { impError('Conversion impossible : ' + esc(e.message)); }
+}
+function addImport(sc, warnings) {
+  var list = imports(), base = 'imp-' + MusicXML.slug(sc.title), id = base, n = 2, i;
+  var exists = function (x) { for (var q = 0; q < list.length; q++) if (list[q].id === x) return true; return false; };
+  if (sc.id && sc.id.indexOf('imp-') === 0 && exists(sc.id)) id = sc.id; /* même morceau partagé : remplacé */
+  else while (exists(id)) id = base + '-' + (n++);
+  sc.id = id;
+  var data = JSON.stringify(sc);
+  try { localStorage.setItem('lp.imp.' + id, data); }
+  catch (e) { impError('Plus de place sur cet appareil pour ranger ce morceau. Supprimez d’anciens morceaux importés.'); return; }
+  var keep = [];
+  for (i = 0; i < list.length; i++) if (list[i].id !== id) keep.push(list[i]);
+  keep.unshift({ id: id, title: sc.title, composer: sc.composer || '' });
+  saveImports(keep);
+  pending = null;
+  var w = '';
+  if (warnings && warnings.length) { w = '<ul>'; each(warnings, function (x) { w += '<li>' + esc(x) + '</li>'; }); w += '</ul>'; }
+  showImpRes('<div class="box ok"><b>« ' + esc(sc.title) + ' » est ajouté à vos morceaux.</b>' + w + '</div>');
+  $('impUrl').value = ''; $('impText').value = '';
+  SET.last = id; saveSet();
+  setScore(sc);
+  setTimeout(function () { $('impPanel').style.display = 'none'; $('libPanel').style.display = 'none'; }, warnings && warnings.length ? 3500 : 1200);
+}
+function readFile(f) {
+  if (!f) return;
+  if (f.size > 8e6) { impError('Fichier trop gros.'); return; }
+  showImpRes('<div class="box ok">Lecture de « ' + esc(f.name) + ' »…</div>');
+  var r = new FileReader();
+  r.onload = function () {
+    try { handleText(MusicXML.textFromBuffer(r.result), f.name); }
+    catch (e) { impError('Lecture impossible : ' + esc(e.message)); }
+  };
+  r.onerror = function () { impError('Le fichier n’a pas pu être lu.'); };
+  r.readAsArrayBuffer(f);
+}
+function importUrl(url) {
+  url = (url || '').replace(/^\s+|\s+$/g, '');
+  if (!/^https?:\/\//i.test(url)) { impError('Indiquez une adresse complète, qui commence par https://'); return; }
+  if (/\.pdf(\?|#|$)/i.test(url)) { blockedHelp(url, 'pdf'); return; }
+  showImpRes('<div class="box ok">Téléchargement…</div>');
+  var name = decodeURIComponent(url.split('?')[0].split('/').pop() || '');
+  var done = function (buf) {
+    try { handleText(MusicXML.textFromBuffer(buf), name); }
+    catch (e) { impError('Lecture impossible : ' + esc(e.message)); }
+  };
+  xhr(url, 'arraybuffer', done, function (status) {
+    var relay = window.LP_RELAY;
+    if (relay) {
+      xhr(relay.replace(/\/$/, '') + '/?url=' + encodeURIComponent(url), 'arraybuffer', done, function () { blockedHelp(url, 'relay'); });
+    } else blockedHelp(url, status === 404 ? '404' : 'cors');
+  });
+}
+function blockedHelp(url, why) {
+  var head = why === 'pdf' ? 'Un PDF ne peut pas être importé : ce n’est qu’une image de la partition, sans les notes.' :
+    why === '404' ? 'Aucun fichier trouvé à cette adresse.' :
+    why === 'relay' ? 'Même le relais n’a pas pu récupérer ce fichier.' :
+    'Le site refuse que cette appli télécharge le fichier à votre place.';
+  var html = '<div class="box warn"><b>' + head + '</b>';
+  if (why === 'pdf') html += '<p>Ouvrez le PDF dans MuseScore (gratuit) ou Audiveris pour le convertir en MusicXML, puis importez ce fichier.</p>';
+  else if (why !== '404') html += '<p>Beaucoup de sites (MuseScore.com, IMSLP…) bloquent les téléchargements demandés par une autre page web : c’est une protection normale de leur part, pas une panne.</p>' +
+    '<p>Que faire :</p><ol>' +
+    '<li><b>Télécharger d’abord</b> le fichier MusicXML depuis le site, puis revenir ici : « Depuis un fichier ».</li>' +
+    '<li>Ou <b>ouvrir le fichier</b> dans le navigateur, tout sélectionner, copier, puis « En collant le texte ».</li>' +
+    (window.LP_RELAY ? '' : '<li>Le propriétaire de cette appli peut activer un <b>relais d’import</b> gratuit (voir la notice) : les adresses bloquées passeront alors par lui.</li>') +
+    '</ol>';
+  else html += '<p>Vérifiez l’adresse : elle doit mener directement au fichier (.musicxml, .xml ou .mxl).</p>';
+  showImpRes(html + '</div>');
+}
+
+/* ------------------------------------------------------------ partager */
+function shareImport(id) {
+  var data = importData(id); if (!data) return;
+  var sc = JSON.parse(data), fname = MusicXML.slug(sc.title) + '.partition.json', file = null;
+  try { file = new File([data], fname, { type: 'application/json' }); } catch (e) { file = null; }
+  if (file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: sc.title })['catch'](function () {});
+    return;
+  }
+  var a = document.createElement('a'), canDl = typeof a.download !== 'undefined' && window.Blob && window.URL && URL.createObjectURL;
+  var html = '<p class="note"><b>' + esc(sc.title) + '</b></p>';
+  if (canDl) html += '<button class="b big" id="shDl">Enregistrer le fichier</button><p class="note">Envoyez ensuite ce fichier (mail, AirDrop, clé USB…) ; sur l’autre appareil : Morceaux → Importer une partition → Depuis un fichier.</p>';
+  html += '<h3>Ou par copier-coller</h3><p class="note">Touchez le texte, « Tout sélectionner », « Copier », puis envoyez-le (mail, message). Sur l’autre appareil : Importer → En collant le texte.</p>' +
+    '<textarea class="txt" id="shTxt" rows="6" readonly></textarea><button class="b" id="shCopy">Copier</button>';
+  $('shareBody').innerHTML = html;
+  $('shTxt').value = data;
+  $('sharePanel').style.display = 'block';
+  if (canDl) tap($('shDl'), function () {
+    var url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    a.href = url; a.download = fname; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.parentNode.removeChild(a); }, 2000);
+  });
+  tap($('shCopy'), function () {
+    var t = $('shTxt'); t.removeAttribute('readonly'); t.focus(); t.setSelectionRange(0, t.value.length);
+    var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    t.setAttribute('readonly', 'readonly');
+    msg(ok ? 'Copié.' : 'Le texte est sélectionné : touchez « Copier » dans le menu.');
+  });
+}
+function deleteImport(id) {
+  var list = imports(), m = null, keep = [];
+  each(list, function (x) { if (x.id === id) m = x; else keep.push(x); });
+  if (!m || !window.confirm('Supprimer « ' + m.title + ' » de cet appareil ?')) return;
+  saveImports(keep);
+  try { localStorage.removeItem('lp.imp.' + id); localStorage.removeItem('lp.s.' + id); } catch (e) {}
+  if (score && score.id === id) { score = null; SET.last = null; saveSet(); afterLib(); }
+  showLib();
 }
 function setScore(sc) {
   score = sc;
@@ -757,10 +927,12 @@ function updateUI() {
   $('chordBox').style.display = hasH ? 'block' : 'none';
   setCls($('bChords'), 'on', !!prefs.chords);
   setCls($('bAccomp'), 'on', !!prefs.accomp);
-  $('view').style.marginTop = $('top').offsetHeight + 'px';
   var cls = SET.theme === 'dark' ? 'dark' : '';
+  if (SET.mini) cls += ' mini';
   for (var k in SET.marks) if (SET.marks.hasOwnProperty(k) && SET.marks[k]) cls += ' mark-' + k;
   document.body.className = cls;
+  $('view').style.marginTop = (SET.mini ? 0 : $('top').offsetHeight) + 'px';
+  $('zVal2').innerHTML = Math.round(prefs.zoom * 100) + '&nbsp;%';
 }
 function rerender() { var was = P.on; if (was) stop(false); render(); if (was) play(P.start, true); }
 
@@ -809,10 +981,26 @@ tap($('bLib'), function () { $('libPanel').style.display = 'block'; showLib(); }
 tap($('libClose'), function () { $('libPanel').style.display = 'none'; });
 $('search').addEventListener('input', showLib, false);
 tap($('libList'), function (ev) {
-  var t = ev.target; while (t && t !== this && !t.getAttribute('data-id')) t = t.parentNode;
+  var t = ev.target;
+  if (t && t.getAttribute && t.getAttribute('data-share')) { shareImport(t.getAttribute('data-share')); return; }
+  if (t && t.getAttribute && t.getAttribute('data-del')) { deleteImport(t.getAttribute('data-del')); return; }
+  while (t && t !== this && !t.getAttribute('data-id')) t = t.parentNode;
   if (t && t.getAttribute && t.getAttribute('data-id')) { $('libPanel').style.display = 'none'; openScore(t.getAttribute('data-id')); }
 });
-tap($('bTools'), function () { var t = $('top'); t.className = t.className === 'open' ? '' : 'open'; setCls($('bTools'), 'on', t.className === 'open'); updateUI(); });
+tap($('bTools'), function () { var t = $('top'), o = !hasCls(t, 'open'); setCls(t, 'open', o); setCls($('bTools'), 'on', o); updateUI(); });
+function setMini(on) { SET.mini = on ? 1 : 0; saveSet(); updateUI(); if (SET.mode === 'p') rerender(); }
+tap($('bHide'), function () { setMini(true); });
+tap($('bShow'), function () { setMini(false); });
+tap($('bPlay2'), function () { if (!score) return; if (P.on) stop(false); else play(P.start); });
+function zoomBy(d) { prefs.zoom = clamp(Math.round((prefs.zoom + d) * 10) / 10, 0.5, 2); savePrefs(); updateUI(); rerender(); }
+tap($('bZ1'), function () { zoomBy(-0.1); });
+tap($('bZ2'), function () { zoomBy(0.1); });
+tap($('bImport'), function () { $('impPanel').style.display = 'block'; showImpRes(''); });
+tap($('impClose'), function () { $('impPanel').style.display = 'none'; });
+tap($('shareClose'), function () { $('sharePanel').style.display = 'none'; });
+$('impFile').addEventListener('change', function () { readFile(this.files && this.files[0]); this.value = ''; }, false);
+tap($('impGo'), function () { importUrl($('impUrl').value); });
+tap($('impPaste'), function () { var t = $('impText').value; if (!/\S/.test(t)) { impError('Rien à importer : collez d’abord le texte.'); return; } handleText(t, ''); });
 tap($('bSet'), function () { $('setPanel').style.display = 'block'; updateUI(); });
 tap($('setClose'), function () { $('setPanel').style.display = 'none'; });
 each(document.querySelectorAll('[data-mode]'), function (b) { tap(b, function () { SET.mode = b.getAttribute('data-mode'); saveSet(); updateUI(); window.scrollTo(0, 0); rerender(); }); });
@@ -820,8 +1008,8 @@ each(document.querySelectorAll('[data-theme]'), function (b) { tap(b, function (
 each(document.querySelectorAll('[data-names]'), function (b) { tap(b, function () { SET.names = b.getAttribute('data-names'); SET.namesOn = 1; saveSet(); updateUI(); rerender(); buildKeyboard(); }); });
 each(document.querySelectorAll('[data-sound]'), function (b) { tap(b, function () { SET.sound = b.getAttribute('data-sound'); saveSet(); updateUI(); if (SET.sound === 'piano') loadPiano(); }); });
 each(document.querySelectorAll('[data-mark]'), function (b) { tap(b, function () { var k = b.getAttribute('data-mark'); SET.marks[k] = SET.marks[k] ? 0 : 1; saveSet(); updateUI(); }); });
-tap($('z1'), function () { prefs.zoom = Math.max(0.6, Math.round((prefs.zoom - 0.1) * 10) / 10); savePrefs(); updateUI(); rerender(); });
-tap($('z2'), function () { prefs.zoom = Math.min(2, Math.round((prefs.zoom + 0.1) * 10) / 10); savePrefs(); updateUI(); rerender(); });
+tap($('z1'), function () { zoomBy(-0.1); });
+tap($('z2'), function () { zoomBy(0.1); });
 $('vol').addEventListener('change', function () { SET.vol = +this.value; saveSet(); applyVolumes(); }, false);
 $('mvol').addEventListener('change', function () { SET.mvol = +this.value; saveSet(); applyVolumes(); }, false);
 $('vol').addEventListener('input', function () { SET.vol = +this.value; applyVolumes(); }, false);
@@ -864,7 +1052,7 @@ document.addEventListener('keydown', function (e) {
     var N = Math.max(1, Math.floor((viewHeight() - 8) / (model.sysH + 4))), half = Math.max(1, Math.floor(N / 2));
     layoutPages(clamp(pageBase + (fwd ? half : -half), 0, model.systems.length - 1));
   } else if (SET.mode === 'h') $('view').scrollLeft += (fwd ? 1 : -1) * $('view').clientWidth * 0.8;
-  else window.scrollBy(0, (fwd ? 1 : -1) * (window.innerHeight - $('top').offsetHeight) * 0.85);
+  else window.scrollBy(0, (fwd ? 1 : -1) * (window.innerHeight - (SET.mini ? 0 : $('top').offsetHeight)) * 0.85);
 }, false);
 
 var rt = null, lastW = 0, lastH = 0;
